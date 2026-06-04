@@ -2,8 +2,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".output/public",
   "devCommand": "npm run dev",
-  "env": [
-    "VITE_SUPABASE_URL",
-    "VITE_SUPABASE_ANON_KEY"
-  ]
+  "env": {
+    "VITE_SUPABASE_URL": "@VITE_SUPABASE_URL",
+    "VITE_SUPABASE_ANON_KEY": "@VITE_SUPABASE_ANON_KEY"
+  }
 }
