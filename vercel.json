@@ -1,8 +1,10 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
-  "devCommand": "npm run dev",
+  "env": {
+    "NODE_ENV": "production"
+  },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/api/[[...index]]" }
   ]
 }
