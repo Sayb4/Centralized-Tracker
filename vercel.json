@@ -1,5 +1,5 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": ".output/dashboard",
+  "outputDirectory": "dist",
   "devCommand": "npm run dev"
 }
