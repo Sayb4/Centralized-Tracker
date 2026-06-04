@@ -1,6 +1,7 @@
 import { createStartHandler } from "@tanstack/start-server-core/vercel";
-import { router } from "../../src/router";
+import { getRouter } from "../../src/router";
 
 export default createStartHandler({
-  router,
+  router: getRouter(),
 });
+
