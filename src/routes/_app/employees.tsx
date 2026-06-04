@@ -381,8 +381,8 @@ function EmployeeDialog({
           <div>
             <Label>Division</Label>
             <Select
-              value={form.department}
-              onValueChange={(v) => setForm((f) => ({ ...f, department: v }))}
+              value={form.division}
+              onValueChange={(v) => setForm((f) => ({ ...f, division: v }))}
             >
               <SelectTrigger>
                 <SelectValue />
