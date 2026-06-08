@@ -1,4 +1,4 @@
-export type AppRole = 'admin' | 'manager' | 'user'
+export type AppRole = 'admin'
 
 export type ChecklistStatus =
   | 'not_yet_submitted'
@@ -19,7 +19,7 @@ export interface Employee {
   employee_code: string
   full_name: string
   email: string | null
-  department: string
+  division: string
   position: string | null
   payroll_group: string | null
   status: EmployeeStatus

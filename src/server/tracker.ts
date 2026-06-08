@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { BUILT_IN_FIELDS } from '#/lib/constants'
-import { requireSupabaseAuth } from '#/lib/auth/middleware'
+import { requireAdmin, requireSupabaseAuth } from '#/lib/auth/middleware'
 import {
   computeProgress,
   getChecklistStatuses,
@@ -39,7 +39,7 @@ export const getTrackerData = createServerFn({ method: 'GET' })
   .middleware([requireSupabaseAuth])
   .inputValidator(
     periodSchema.extend({
-      department: z.string().optional(),
+      division: z.string().optional(),
       statusFilter: z
         .enum(['all', 'completed', 'pending', 'not_started'])
         .optional(),
@@ -105,8 +105,8 @@ export const getTrackerData = createServerFn({ method: 'GET' })
       return { employee, checklist, customValues: customStatus, progress }
     })
 
-    if (data.department && data.department !== 'all') {
-      rows = rows.filter((r) => r.employee.department === data.department)
+    if (data.division && data.division !== 'all') {
+      rows = rows.filter((r) => r.employee.division === data.division)
     }
 
     if (data.search?.trim()) {
@@ -131,7 +131,7 @@ export const getTrackerData = createServerFn({ method: 'GET' })
   })
 
 export const updateChecklist = createServerFn({ method: 'POST' })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAdmin])
   .inputValidator(
     periodSchema.extend({
       employeeId: z.string().uuid(),
@@ -144,13 +144,6 @@ export const updateChecklist = createServerFn({ method: 'POST' })
   )
   .handler(async ({ context, data }) => {
     const auth = context.auth
-    const canEdit =
-      auth.roles.includes('admin') ||
-      auth.roles.includes('manager') ||
-      auth.features['tracker.edit']
-
-    if (!canEdit) throw new Error('Forbidden')
-
     const { employeeId, year, month, field, isCustom } = data
 
     if (isCustom) {
@@ -213,7 +206,7 @@ export const updateChecklist = createServerFn({ method: 'POST' })
   })
 
 export const bulkUpdateChecklist = createServerFn({ method: 'POST' })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAdmin])
   .inputValidator(
     periodSchema.extend({
       employeeIds: z.array(z.string().uuid()).min(1),
@@ -224,12 +217,6 @@ export const bulkUpdateChecklist = createServerFn({ method: 'POST' })
   )
   .handler(async ({ context, data }) => {
     const auth = context.auth
-    const canEdit =
-      auth.roles.includes('admin') ||
-      auth.roles.includes('manager') ||
-      auth.features['tracker.edit']
-
-    if (!canEdit) throw new Error('Forbidden')
 
     for (const employeeId of data.employeeIds) {
       if (data.isCustom) {

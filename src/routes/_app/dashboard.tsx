@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
 import { PayrollGroupDetail } from '#/components/dashboard/payroll-group-detail'
 import {
   Cell,
@@ -9,13 +10,25 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts'
-import { formatPeriod, getCurrentPeriod } from '#/lib/constants'
-import { CHECKLIST_STATUS_LABELS } from '#/lib/constants'
+import {
+  CHECKLIST_STATUS_LABELS,
+  MONTH_NAMES,
+  formatPeriod,
+  getCurrentPeriod,
+} from '#/lib/constants'
 import type { ChecklistStatus } from '#/lib/types'
 import { getDashboardData } from '#/server/dashboard'
 import { AppHeader } from '#/components/layout/app-header'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
+import { Label } from '#/components/ui/label'
 import { Progress } from '#/components/ui/progress'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import {
   Table,
@@ -34,20 +47,65 @@ const PIE_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)']
 
 function DashboardPage() {
   const period = getCurrentPeriod()
+  const [year, setYear] = useState(period.year)
+  const [month, setMonth] = useState(period.month)
+
+  const years = [period.year - 1, period.year, period.year + 1]
+
   const { data, isLoading } = useQuery({
-    queryKey: ['dashboard', period.year, period.month],
-    queryFn: () => getDashboardData({ data: period }),
+    queryKey: ['dashboard', year, month],
+    queryFn: () => getDashboardData({ data: { year, month } }),
   })
 
   return (
     <>
       <AppHeader title="Dashboard" />
       <main className="flex-1 space-y-6 p-6">
-        <div>
-          <p className="text-sm text-muted-foreground">Current pay period</p>
-          <h2 className="text-2xl font-semibold">
-            {formatPeriod(period.year, period.month)}
-          </h2>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Pay period</p>
+            <h2 className="text-2xl font-semibold">
+              {formatPeriod(year, month)}
+            </h2>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <div>
+              <Label className="text-xs">Year</Label>
+              <Select
+                value={String(year)}
+                onValueChange={(v) => setYear(Number(v))}
+              >
+                <SelectTrigger className="w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Month</Label>
+              <Select
+                value={String(month)}
+                onValueChange={(v) => setMonth(Number(v))}
+              >
+                <SelectTrigger className="w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTH_NAMES.map((name, i) => (
+                    <SelectItem key={i + 1} value={String(i + 1)}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
         {isLoading || !data ? (
@@ -62,7 +120,7 @@ function DashboardPage() {
               <StatCard label="Total Employees" value={data.stats.total} />
               <StatCard label="Active" value={data.stats.active} />
               <StatCard label="Completed" value={data.stats.completed} />
-              <StatCard label="Pending" value={data.stats.pending} />
+              <StatCard label="In Progress" value={data.stats.inProgress} />
             </div>
 
             <Card>
@@ -137,6 +195,45 @@ function DashboardPage() {
                 </CardContent>
               </Card>
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Division summary</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Division</TableHead>
+                      <TableHead className="text-right">Employees</TableHead>
+                      <TableHead className="text-right">Completed</TableHead>
+                      <TableHead className="text-right">In Progress</TableHead>
+                      <TableHead className="text-right">Not Started</TableHead>
+                      <TableHead>Avg Progress</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.divisionSummary.map((d) => (
+                      <TableRow key={d.division}>
+                        <TableCell className="font-medium">{d.division}</TableCell>
+                        <TableCell className="text-right">{d.employeeCount}</TableCell>
+                        <TableCell className="text-right">{d.completed}</TableCell>
+                        <TableCell className="text-right">{d.inProgress}</TableCell>
+                        <TableCell className="text-right">{d.notStarted}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Progress value={d.averageProgress} className="flex-1" />
+                            <span className="w-10 text-right text-xs">
+                              {d.averageProgress}%
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
 
             <PayrollGroupDetail groups={data.payrollGroups} />
 

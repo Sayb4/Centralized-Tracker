@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import {
   BUILT_IN_FIELDS,
@@ -44,15 +44,18 @@ export const Route = createFileRoute('/_app/tracker')({
   component: TrackerPage,
 })
 
+const TRACKER_PAGE_SIZE = 20
+
 function TrackerPage() {
   const period = getCurrentPeriod()
   const [year, setYear] = useState(period.year)
   const [month, setMonth] = useState(period.month)
-  const [department, setDepartment] = useState('all')
+  const [division, setDivision] = useState('all')
   const [statusFilter, setStatusFilter] = useState<
     'all' | 'completed' | 'pending' | 'not_started'
   >('all')
   const [search, setSearch] = useState('')
+  const [trackerPage, setTrackerPage] = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [bulkField, setBulkField] = useState('')
@@ -63,21 +66,25 @@ function TrackerPage() {
   const years = [period.year - 1, period.year, period.year + 1]
 
   const { data, isLoading } = useQuery({
-    queryKey: ['tracker', year, month, department, statusFilter, search],
+    queryKey: ['tracker', year, month, division, statusFilter, search],
     queryFn: () =>
       getTrackerData({
         data: {
           year,
           month,
-          department: department === 'all' ? undefined : department,
+          division: division === 'all' ? undefined : division,
           statusFilter,
           search: search || undefined,
         },
       }),
   })
 
-  const invalidate = () =>
+  useEffect(() => { setTrackerPage(1) }, [year, month, division, statusFilter, search])
+
+  const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['tracker'] })
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+  }
 
   const updateMut = useMutation({
     mutationFn: updateChecklist,
@@ -167,7 +174,7 @@ function TrackerPage() {
           </div>
           <div>
             <Label className="text-xs">Division</Label>
-            <Select value={department} onValueChange={setDepartment}>
+            <Select value={division} onValueChange={setDivision}>
               <SelectTrigger className="w-56">
                 <SelectValue />
               </SelectTrigger>
@@ -256,8 +263,14 @@ function TrackerPage() {
         {isLoading || !data ? (
           <Skeleton className="h-64 w-full" />
         ) : (
+          <div className="space-y-3">
           <div className="space-y-2">
-            {data.rows.map((row) => {
+            {data.rows
+              .slice(
+                (trackerPage - 1) * TRACKER_PAGE_SIZE,
+                trackerPage * TRACKER_PAGE_SIZE,
+              )
+              .map((row) => {
               const isOpen = expanded.has(row.employee.id)
               return (
                 <Collapsible
@@ -288,7 +301,7 @@ function TrackerPage() {
                         {row.employee.employee_code}
                       </p>
                     </div>
-                    <Badge variant="outline">{row.employee.department}</Badge>
+                    <Badge variant="outline">{row.employee.division}</Badge>
                     <div className="flex flex-wrap gap-2">
                       {BUILT_IN_FIELDS.map((f) => (
                         <div key={f.key} className="flex flex-col gap-1">
@@ -416,6 +429,37 @@ function TrackerPage() {
                 No employees match your filters.
               </p>
             )}
+          </div>
+          {data.rows.length > TRACKER_PAGE_SIZE && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing{' '}
+                {(trackerPage - 1) * TRACKER_PAGE_SIZE + 1}–
+                {Math.min(trackerPage * TRACKER_PAGE_SIZE, data.rows.length)} of{' '}
+                {data.rows.length} employees
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={trackerPage <= 1}
+                  onClick={() => setTrackerPage((p) => p - 1)}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    trackerPage >= Math.ceil(data.rows.length / TRACKER_PAGE_SIZE)
+                  }
+                  onClick={() => setTrackerPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
           </div>
         )}
       </main>

@@ -6,12 +6,24 @@ import type { AuditLogEntry } from '#/lib/types'
 
 const PAGE_SIZE = 50
 
+export const AUDIT_ENTITY_TYPES = [
+  'employees',
+  'payroll_checklists',
+  'custom_checklist_values',
+] as const
+
+export const AUDIT_ACTIONS = ['INSERT', 'UPDATE', 'DELETE'] as const
+
 export const listAuditLog = createServerFn({ method: 'GET' })
   .middleware([requireAdmin])
   .inputValidator(
     z.object({
       page: z.number().int().min(1).default(1),
       actorEmail: z.string().optional(),
+      action: z.enum(['INSERT', 'UPDATE', 'DELETE']).optional(),
+      entityType: z.string().optional(),
+      dateFrom: z.string().optional(),
+      dateTo: z.string().optional(),
     }),
   )
   .handler(async ({ data }) => {
@@ -27,6 +39,20 @@ export const listAuditLog = createServerFn({ method: 'GET' })
 
     if (data.actorEmail?.trim()) {
       query = query.ilike('actor_email', `%${data.actorEmail.trim()}%`)
+    }
+    if (data.action) {
+      query = query.eq('action', data.action)
+    }
+    if (data.entityType?.trim()) {
+      query = query.eq('entity_type', data.entityType.trim())
+    }
+    if (data.dateFrom?.trim()) {
+      query = query.gte('created_at', data.dateFrom.trim())
+    }
+    if (data.dateTo?.trim()) {
+      const end = new Date(data.dateTo.trim())
+      end.setDate(end.getDate() + 1)
+      query = query.lt('created_at', end.toISOString())
     }
 
     const { data: rows, error, count } = await query

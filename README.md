@@ -29,18 +29,13 @@ cp .env.example .env
 supabase/migrations/20250604000000_initial_schema.sql
 ```
 
-4. Create the admin auth user in Supabase Dashboard → Authentication → Users:
-
-- Email: `ocpdc_admin@ocpdc.local`
-- Password: `adminocpdc123`
-
-5. Run the seed script:
+4. Run the seed script:
 
 ```
 supabase/seed.sql
 ```
 
-6. Install and run:
+5. Install and run:
 
 ```bash
 npm install
@@ -57,11 +52,11 @@ This app uses **TanStack Start + Nitro** (not a manual `api/` handler). Steps:
 2. **Framework preset:** Vercel should auto-detect Nitro. Build command: `npm run build`.
 3. Add these **Environment Variables** in Vercel → Project → Settings → Environment Variables (all environments: Production, Preview, Development):
 
-| Variable | Required |
-|----------|----------|
-| `VITE_SUPABASE_URL` | Yes |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes (audit log) |
+| Variable                        | Required        |
+| ------------------------------- | --------------- |
+| `VITE_SUPABASE_URL`             | Yes             |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes             |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Yes (audit log) |
 
 4. Redeploy after saving env vars.
 
@@ -72,21 +67,21 @@ If you see `FUNCTION_INVOCATION_FAILED` / 500, the usual causes are:
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Development server (port 3000) |
-| `npm run build` | Production build |
-| `npm run preview` | Preview production build |
+| Command           | Description                    |
+| ----------------- | ------------------------------ |
+| `npm run dev`     | Development server (port 3000) |
+| `npm run build`   | Production build               |
+| `npm run preview` | Preview production build       |
 
 ## Routes
 
-| Path | Access |
-|------|--------|
-| `/login` | Public |
-| `/dashboard` | Authenticated |
-| `/tracker` | Authenticated (`tracker.edit` for writes) |
+| Path         | Access                                                         |
+| ------------ | -------------------------------------------------------------- |
+| `/login`     | Public                                                         |
+| `/dashboard` | Authenticated                                                  |
+| `/tracker`   | Authenticated (`tracker.edit` for writes)                      |
 | `/employees` | Authenticated (admin/manager or `employees.manage` for writes) |
-| `/audit` | Admin only |
-| `/settings` | Admin only (custom fields management) |
+| `/audit`     | Admin only                                                     |
+| `/settings`  | Admin only (custom fields management)                          |
 
 **Note:** The entire application is restricted to users with the `admin` role.

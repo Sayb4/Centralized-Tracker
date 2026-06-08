@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+
+const EMP_PAGE_SIZE = 20
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { DIVISIONS } from '#/lib/constants'
@@ -52,7 +54,7 @@ const formSchema = z.object({
   employee_code: z.string().min(1),
   full_name: z.string().min(1),
   email: z.string().optional(),
-  department: z.string(),
+  division: z.string(),
   position: z.string().optional(),
   payroll_group: z.string().optional(),
   status: z.enum(['active', 'inactive']),
@@ -61,6 +63,7 @@ const formSchema = z.object({
 function EmployeesPage() {
   const canManage = useCanManageEmployees()
   const [search, setSearch] = useState('')
+  const [empPage, setEmpPage] = useState(1)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Employee | null>(null)
   const [importOpen, setImportOpen] = useState(false)
@@ -86,6 +89,14 @@ function EmployeesPage() {
     )
   }, [employees, search])
 
+  useEffect(() => { setEmpPage(1) }, [search])
+
+  const totalEmpPages = Math.max(1, Math.ceil(filtered.length / EMP_PAGE_SIZE))
+  const paginated = filtered.slice(
+    (empPage - 1) * EMP_PAGE_SIZE,
+    empPage * EMP_PAGE_SIZE,
+  )
+
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['employees'] })
 
@@ -95,7 +106,7 @@ function EmployeesPage() {
       <main className="flex-1 space-y-4 p-6">
         <div className="flex flex-wrap items-center gap-3">
           <Input
-            placeholder="Search name, code, or email"
+            placeholder="Search name, id, or email"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="max-w-sm"
@@ -122,11 +133,12 @@ function EmployeesPage() {
         {isLoading ? (
           <Skeleton className="h-64 w-full" />
         ) : (
+          <div className="space-y-3">
           <div className="rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Code</TableHead>
+                  <TableHead>Employee ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Division</TableHead>
                   <TableHead>Group</TableHead>
@@ -135,57 +147,98 @@ function EmployeesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((emp) => (
-                  <TableRow key={emp.id}>
-                    <TableCell>{emp.employee_code}</TableCell>
-                    <TableCell className="font-medium">{emp.full_name}</TableCell>
-                    <TableCell>{emp.department}</TableCell>
-                    <TableCell>{emp.payroll_group ?? '—'}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          emp.status === 'active' ? 'default' : 'secondary'
-                        }
-                      >
-                        {emp.status}
-                      </Badge>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={canManage ? 6 : 5}
+                      className="py-12 text-center text-muted-foreground"
+                    >
+                      {search.trim()
+                        ? `No employees match "${search}"`
+                        : 'No employees found'}
                     </TableCell>
-                    {canManage && (
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setEditing(emp)
-                            setDialogOpen(true)
-                          }}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={async () => {
-                            if (!confirm('Delete this employee?')) return
-                            try {
-                              await deleteEmployee({ data: { id: emp.id } })
-                              invalidate()
-                              toast.success('Employee deleted')
-                            } catch (e) {
-                              toast.error(
-                                e instanceof Error ? e.message : 'Delete failed',
-                              )
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    )}
                   </TableRow>
-                ))}
+                ) : (
+                  paginated.map((emp) => (
+                    <TableRow key={emp.id}>
+                      <TableCell>{emp.employee_code}</TableCell>
+                      <TableCell className="font-medium">{emp.full_name}</TableCell>
+                      <TableCell>{emp.division}</TableCell>
+                      <TableCell>{emp.payroll_group ?? '—'}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            emp.status === 'active' ? 'default' : 'secondary'
+                          }
+                        >
+                          {emp.status}
+                        </Badge>
+                      </TableCell>
+                      {canManage && (
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditing(emp)
+                              setDialogOpen(true)
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={async () => {
+                              if (!confirm('Delete this employee?')) return
+                              try {
+                                await deleteEmployee({ data: { id: emp.id } })
+                                invalidate()
+                                toast.success('Employee deleted')
+                              } catch (e) {
+                                toast.error(
+                                  e instanceof Error ? e.message : 'Delete failed',
+                                )
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
+          </div>
+          {filtered.length > EMP_PAGE_SIZE && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing {(empPage - 1) * EMP_PAGE_SIZE + 1}–
+                {Math.min(empPage * EMP_PAGE_SIZE, filtered.length)} of{' '}
+                {filtered.length} employees
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={empPage <= 1}
+                  onClick={() => setEmpPage((p) => p - 1)}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={empPage >= totalEmpPages}
+                  onClick={() => setEmpPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
           </div>
         )}
 
@@ -291,7 +344,7 @@ function EmployeeDialog({
     employee_code: '',
     full_name: '',
     email: '',
-    department: DIVISIONS[0],
+    division: DIVISIONS[0],
     position: '',
     payroll_group: '',
     status: 'active' as 'active' | 'inactive',
@@ -305,7 +358,7 @@ function EmployeeDialog({
         employee_code: employee.employee_code,
         full_name: employee.full_name,
         email: employee.email ?? '',
-        department: employee.department,
+        division: employee.division,
         position: employee.position ?? '',
         payroll_group: employee.payroll_group ?? '',
         status: employee.status,
@@ -315,7 +368,7 @@ function EmployeeDialog({
         employee_code: '',
         full_name: '',
         email: '',
-        department: DIVISIONS[0],
+        division: DIVISIONS[0],
         position: '',
         payroll_group: '',
         status: 'active',

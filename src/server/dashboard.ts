@@ -25,7 +25,7 @@ export interface DashboardGroupMember {
   employeeId: string
   employeeCode: string
   fullName: string
-  department: string
+  division: string
   progress: number
   category: EmployeeCompletionCategory
   fields: DashboardFieldStatus[]
@@ -244,7 +244,7 @@ export const getDashboardData = createServerFn({ method: 'GET' })
           employeeId: e.employee.id,
           employeeCode: e.employee.employee_code,
           fullName: e.employee.full_name,
-          department: e.employee.department,
+          division: e.employee.division,
           progress: e.progress,
           category: e.category,
           fields: buildMemberFields(
@@ -270,6 +270,47 @@ export const getDashboardData = createServerFn({ method: 'GET' })
 
     payrollGroups.sort((a, b) => a.group.localeCompare(b.group))
 
+    const divisionMap = new Map<
+      string,
+      { division: string; employees: typeof progressByEmployee }
+    >()
+    for (const row of progressByEmployee) {
+      const div = row.employee.division || 'Unassigned'
+      if (!divisionMap.has(div)) {
+        divisionMap.set(div, { division: div, employees: [] })
+      }
+      divisionMap.get(div)!.employees.push(row)
+    }
+
+    const divisionSummary = Array.from(divisionMap.values())
+      .map((d) => {
+        const completedCount = d.employees.filter(
+          (e) => e.category === 'completed',
+        ).length
+        const inProgressCount = d.employees.filter(
+          (e) => e.category === 'in_progress',
+        ).length
+        const notStartedCount = d.employees.filter(
+          (e) => e.category === 'not_started',
+        ).length
+        const avg =
+          d.employees.length > 0
+            ? Math.round(
+                d.employees.reduce((s, e) => s + e.progress, 0) /
+                  d.employees.length,
+              )
+            : 0
+        return {
+          division: d.division,
+          employeeCount: d.employees.length,
+          completed: completedCount,
+          inProgress: inProgressCount,
+          notStarted: notStartedCount,
+          averageProgress: avg,
+        }
+      })
+      .sort((a, b) => a.division.localeCompare(b.division))
+
     return {
       year,
       month,
@@ -277,7 +318,7 @@ export const getDashboardData = createServerFn({ method: 'GET' })
         total: allEmployees.length,
         active: activeEmployees.length,
         completed,
-        pending: inProgress + notStarted,
+        inProgress: inProgress,
       },
       averageProgress: avgProgress,
       completionPie: [
@@ -287,6 +328,7 @@ export const getDashboardData = createServerFn({ method: 'GET' })
       ],
       statusDistribution,
       payrollGroups,
+      divisionSummary,
       builtInFieldCount: BUILT_IN_FIELDS.length,
     }
   })

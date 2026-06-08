@@ -40,20 +40,10 @@ export function useHasRole(role: AuthState['roles'][number]) {
 
 export function useCanEditTracker() {
   const { auth } = useAuth()
-  if (!auth) return false
-  return (
-    auth.roles.includes('admin') ||
-    auth.roles.includes('manager') ||
-    auth.features['tracker.edit']
-  )
+  return auth?.roles.includes('admin') ?? false
 }
 
 export function useCanManageEmployees() {
   const { auth } = useAuth()
-  if (!auth) return false
-  return (
-    auth.roles.includes('admin') ||
-    auth.roles.includes('manager') ||
-    auth.features['employees.manage']
-  )
+  return auth?.roles.includes('admin') ?? false
 }

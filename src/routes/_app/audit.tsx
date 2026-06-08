@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
-import { listAuditLog } from '#/server/audit'
+import { AUDIT_ACTIONS, AUDIT_ENTITY_TYPES, listAuditLog } from '#/server/audit'
 import { AppHeader } from '#/components/layout/app-header'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -12,6 +12,14 @@ import {
   CollapsibleTrigger,
 } from '#/components/ui/collapsible'
 import { Input } from '#/components/ui/input'
+import { Label } from '#/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import {
   Table,
@@ -61,13 +69,31 @@ function summarizeChange(
 function AuditPage() {
   const [page, setPage] = useState(1)
   const [actorEmail, setActorEmail] = useState('')
+  const [action, setAction] = useState('all')
+  const [entityType, setEntityType] = useState('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
+  function resetPage() {
+    setPage(1)
+  }
+
   const { data, isLoading } = useQuery({
-    queryKey: ['audit', page, actorEmail],
+    queryKey: ['audit', page, actorEmail, action, entityType, dateFrom, dateTo],
     queryFn: () =>
       listAuditLog({
-        data: { page, actorEmail: actorEmail || undefined },
+        data: {
+          page,
+          actorEmail: actorEmail || undefined,
+          action:
+            action !== 'all'
+              ? (action as 'INSERT' | 'UPDATE' | 'DELETE')
+              : undefined,
+          entityType: entityType !== 'all' ? entityType : undefined,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+        },
       }),
   })
 
@@ -77,15 +103,78 @@ function AuditPage() {
     <>
       <AppHeader title="Audit Log" />
       <main className="flex-1 space-y-4 p-6">
-        <Input
-          placeholder="Filter by actor email"
-          value={actorEmail}
-          onChange={(e) => {
-            setActorEmail(e.target.value)
-            setPage(1)
-          }}
-          className="max-w-sm"
-        />
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[180px] flex-1">
+            <Label className="text-xs">Actor email</Label>
+            <Input
+              placeholder="Filter by email"
+              value={actorEmail}
+              onChange={(e) => { setActorEmail(e.target.value); resetPage() }}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Action</Label>
+            <Select value={action} onValueChange={(v) => { setAction(v); resetPage() }}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {AUDIT_ACTIONS.map((a) => (
+                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Entity</Label>
+            <Select value={entityType} onValueChange={(v) => { setEntityType(v); resetPage() }}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All entities</SelectItem>
+                {AUDIT_ENTITY_TYPES.map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">From</Label>
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => { setDateFrom(e.target.value); resetPage() }}
+              className="w-36"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">To</Label>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => { setDateTo(e.target.value); resetPage() }}
+              className="w-36"
+            />
+          </div>
+          {(actorEmail || action !== 'all' || entityType !== 'all' || dateFrom || dateTo) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setActorEmail('')
+                setAction('all')
+                setEntityType('all')
+                setDateFrom('')
+                setDateTo('')
+                resetPage()
+              }}
+            >
+              Clear filters
+            </Button>
+          )}
+        </div>
 
         {isLoading || !data ? (
           <Skeleton className="h-64 w-full" />

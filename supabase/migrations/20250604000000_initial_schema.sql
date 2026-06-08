@@ -13,7 +13,7 @@ CREATE TABLE public.employees (
   employee_code text NOT NULL UNIQUE,
   full_name text NOT NULL,
   email text,
-  department text NOT NULL,
+  division text NOT NULL,
   position text,
   payroll_group text,
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
