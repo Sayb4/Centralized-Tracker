@@ -67,7 +67,7 @@ function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md border shadow-sm">
         <CardHeader className="text-center">
-          <img src="/logo512.png" alt="Logo" className="h-8 w-8 rounded-md" />
+          <img src="/logo512.png" alt="Logo" className="h-16 w-16 rounded-md" />
           <CardTitle className="text-xl">{APP_NAME}</CardTitle>
           <p className="text-sm text-muted-foreground">
             Administrator access only
