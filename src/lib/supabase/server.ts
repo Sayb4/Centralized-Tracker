@@ -1,5 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
-import { getRequest } from '@tanstack/react-start/server'
+import {
+  deleteCookie,
+  getCookies,
+  setCookie,
+} from '@tanstack/react-start/server'
 
 export async function createSupabaseServerClient() {
   const url = process.env.VITE_SUPABASE_URL ?? import.meta.env.VITE_SUPABASE_URL
@@ -13,28 +17,22 @@ export async function createSupabaseServerClient() {
     )
   }
 
-  const request = getRequest()
-  const cookieHeader = request.headers.get('cookie') ?? ''
-
-  const cookies = cookieHeader.split(';').reduce<Record<string, string>>(
-    (acc, part) => {
-      const [name, ...rest] = part.trim().split('=')
-      if (name) acc[name] = rest.join('=')
-      return acc
-    },
-    {},
-  )
-
   return createServerClient(url, key, {
     cookies: {
       getAll() {
-        return Object.entries(cookies).map(([name, value]) => ({
+        return Object.entries(getCookies()).map(([name, value]) => ({
           name,
-          value: decodeURIComponent(value),
+          value,
         }))
       },
-      setAll() {
-        // Response cookies set via Set-Cookie in auth flows on client
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          if (value) {
+            setCookie(name, value, options)
+          } else {
+            deleteCookie(name, options)
+          }
+        })
       },
     },
   })

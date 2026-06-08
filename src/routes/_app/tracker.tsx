@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import {
   BUILT_IN_FIELDS,
   DIVISIONS,
+  MONTH_NAMES,
   formatPeriod,
   getCurrentPeriod,
 } from '#/lib/constants'
@@ -158,7 +159,7 @@ function TrackerPage() {
               <SelectContent>
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                   <SelectItem key={m} value={String(m)}>
-                    {m}
+                    {MONTH_NAMES[m - 1]}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -40,7 +40,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-2">
-          <img src="/logo192.png" alt="Logo" className="h-8 w-8 rounded-md" />
+          <img src="/logo192.png" alt="Logo" className="h-8 w-8 rounded-md group-data-[collapsible=icon]:hidden" />
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-semibold leading-tight">
               {APP_NAME}

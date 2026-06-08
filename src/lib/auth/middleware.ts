@@ -8,12 +8,46 @@ export type AuthMiddlewareContext = {
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
 }
 
+function isStaleSessionError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const err = error as { code?: string; message?: string }
+  return (
+    err.code === 'refresh_token_not_found' ||
+    err.message?.includes('Refresh Token') === true ||
+    err.message?.includes('Invalid Refresh Token') === true
+  )
+}
+
+async function clearStaleSession(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+) {
+  try {
+    await supabase.auth.signOut()
+  } catch {
+    // Ignore — cookies may already be invalid
+  }
+}
+
 async function loadAuthState(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
 ): Promise<AuthState | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user
+
+  try {
+    const { data, error } = await supabase.auth.getUser()
+    if (error) {
+      if (isStaleSessionError(error)) {
+        await clearStaleSession(supabase)
+      }
+      return null
+    }
+    user = data.user
+  } catch (error) {
+    if (isStaleSessionError(error)) {
+      await clearStaleSession(supabase)
+    }
+    return null
+  }
 
   if (!user) return null
 
