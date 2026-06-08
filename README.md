@@ -49,6 +49,27 @@ npm run dev
 
 Open http://localhost:3000 and sign in with username `ocpdc_admin` and password `adminocpdc123`.
 
+## Deploy to Vercel
+
+This app uses **TanStack Start + Nitro** (not a manual `api/` handler). Steps:
+
+1. Push the repo to GitHub and import it in [Vercel](https://vercel.com).
+2. **Framework preset:** Vercel should auto-detect Nitro. Build command: `npm run build`.
+3. Add these **Environment Variables** in Vercel → Project → Settings → Environment Variables (all environments: Production, Preview, Development):
+
+| Variable | Required |
+|----------|----------|
+| `VITE_SUPABASE_URL` | Yes |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes (audit log) |
+
+4. Redeploy after saving env vars.
+
+If you see `FUNCTION_INVOCATION_FAILED` / 500, the usual causes are:
+
+- Missing Supabase env vars on Vercel (the server throws on startup/request).
+- Old deployment config using `api/[[...index]].ts` and `outputDirectory: dist/client` — removed in favor of Nitro’s `.vercel/output`.
+
 ## Scripts
 
 | Command | Description |
