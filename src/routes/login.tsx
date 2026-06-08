@@ -83,7 +83,7 @@ function LoginPage() {
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="ocpdc_admin"
+                placeholder="admin login"
                 autoComplete="username"
                 required
               />
