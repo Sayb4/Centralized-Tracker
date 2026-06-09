@@ -1,6 +1,6 @@
 import type { BuiltInFieldKey, ChecklistStatus } from '#/lib/types'
 
-export const APP_NAME = 'OCPDC Payroll Tracker'
+export const APP_NAME = 'OCPDC Payroll'
 export const ADMIN_EMAIL = 'ocpdc_admin@ocpdc.local'
 export const ADMIN_USERNAME = 'ocpdc_admin'
 

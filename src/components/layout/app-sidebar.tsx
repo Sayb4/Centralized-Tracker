@@ -46,7 +46,7 @@ export function AppSidebar() {
               {APP_NAME}
             </span>
             <span className="text-xs text-sidebar-foreground/70">
-              Compliance
+              Tracker
             </span>
           </div>
         </div>
