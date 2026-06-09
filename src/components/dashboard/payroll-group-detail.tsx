@@ -107,7 +107,7 @@ export function PayrollGroupDetail({
             <SelectContent>
               {groups.map((g) => (
                 <SelectItem key={g.group} value={g.group}>
-                  {g.group} ({g.employeeCount})
+                  {g.group}
                 </SelectItem>
               ))}
             </SelectContent>

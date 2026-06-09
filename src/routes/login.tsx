@@ -80,7 +80,7 @@ function LoginPage() {
         aria-hidden
       />
 
-      <Card className="relative z-10 w-full max-w-md border border-border/50 bg-card/90 shadow-lg opacity-85 backdrop-blur-md">
+      <Card className="relative z-10 w-full max-w-md border border-border/50 bg-card/90 shadow-lg opacity-90 backdrop-blur-md">
         <CardHeader className="text-center">
           <img
             src="/logo512.png"
