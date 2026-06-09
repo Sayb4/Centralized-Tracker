@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, useNavigate, useSearch } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { APP_NAME, usernameToEmail } from '#/lib/constants'
+import { APP_NAME, LOGIN_BACKGROUND_VIDEO, usernameToEmail } from '#/lib/constants'
 import { getSupabaseBrowserClient } from '#/lib/supabase/client'
 import { getAuthState } from '#/server/auth'
 import { Button } from '#/components/ui/button'
@@ -61,16 +61,32 @@ function LoginPage() {
     } finally {
       setLoading(false)
     }
-
-    
-
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md border shadow-sm">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        aria-hidden
+      >
+        <source src={LOGIN_BACKGROUND_VIDEO} type="video/mp4" />
+      </video>
+      <div
+        className="pointer-events-none absolute inset-0 "
+        aria-hidden
+      />
+
+      <Card className="relative z-10 w-full max-w-md border border-border/50 bg-card/90 shadow-lg opacity-85 backdrop-blur-md">
         <CardHeader className="text-center">
-          <img src="/logo512.png" alt="Logo"  className="mx-auto mb-3 flex h-32 w-32 items-center justify-center rounded-lg " />
+          <img
+            src="/logo512.png"
+            alt="Logo"
+            className="mx-auto mb-3 flex h-32 w-32 items-center justify-center rounded-lg"
+          />
           <CardTitle className="text-xl">{APP_NAME}</CardTitle>
           <p className="text-sm text-muted-foreground">
             Administrator access only
@@ -101,7 +117,11 @@ function LoginPage() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full cursor-pointer disabled:cursor-not-allowed"
+              disabled={loading}
+            >
               {loading ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>

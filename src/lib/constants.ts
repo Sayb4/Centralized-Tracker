@@ -4,12 +4,15 @@ export const APP_NAME = 'OCPDC Payroll Tracker'
 export const ADMIN_EMAIL = 'ocpdc_admin@ocpdc.local'
 export const ADMIN_USERNAME = 'ocpdc_admin'
 
+/** Login page background video — place the file in `public/` and update this path. */
+export const LOGIN_BACKGROUND_VIDEO = '/login-background.mp4'
+
 export const DIVISIONS = [
-  'Office of the City Planning and Development Coordinator',
-  'Zoning and Land Development Division',
-  'Project Development and Evaluation Division',
-  'Urban Planning Division',
-  'Administrative Division',
+  'Admin',
+  'Sectoral',
+  'PPDIV',
+  'IMD',
+  'Traffic'
 ] as const
 
 export const FEATURES = {
