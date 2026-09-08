@@ -1,17 +1,17 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { requireAdmin, requireSupabaseAuth } from '#/lib/auth/middleware'
-import { DIVISIONS } from '#/lib/constants'
+import {
+  assertDivisionAllowed,
+  fetchActiveDivisionNames,
+} from '#/lib/divisions'
 import type { Employee } from '#/lib/types'
 
 const employeeSchema = z.object({
   employee_code: z.string().min(1),
   full_name: z.string().min(1),
   email: z.string().email().optional().or(z.literal('')),
-  division: z.string().refine(
-    (d) => (DIVISIONS as readonly string[]).includes(d),
-    'Invalid division',
-  ),
+  division: z.string().min(1, 'Division is required'),
   position: z.string().optional(),
   payroll_group: z.string().optional(),
   status: z.enum(['active', 'inactive']),
@@ -35,6 +35,9 @@ export const createEmployee = createServerFn({ method: 'POST' })
   .middleware([requireAdmin])
   .inputValidator(employeeSchema)
   .handler(async ({ context, data }) => {
+    const allowedDivisions = await fetchActiveDivisionNames(context.supabase)
+    assertDivisionAllowed(data.division, allowedDivisions)
+
     const { data: row, error } = await context.supabase
       .from('employees')
       .insert({
@@ -57,6 +60,9 @@ export const updateEmployee = createServerFn({ method: 'POST' })
   )
   .handler(async ({ context, data }) => {
     const { id, ...rest } = data
+    const allowedDivisions = await fetchActiveDivisionNames(context.supabase)
+    assertDivisionAllowed(rest.division, allowedDivisions)
+
     const { data: row, error } = await context.supabase
       .from('employees')
       .update({
@@ -87,13 +93,14 @@ export const deleteEmployee = createServerFn({ method: 'POST' })
   })
 
 export const validateCsvImport = createServerFn({ method: 'POST' })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAdmin])
   .inputValidator(
     z.object({
       rows: z.array(z.record(z.string(), z.string())),
     }),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
+    const allowedDivisions = await fetchActiveDivisionNames(context.supabase)
     const valid: z.infer<typeof employeeSchema>[] = []
     const invalid: { row: number; errors: string[] }[] = []
 
@@ -110,14 +117,23 @@ export const validateCsvImport = createServerFn({ method: 'POST' })
           | 'inactive',
       })
 
-      if (parsed.success) {
-        valid.push(parsed.data)
-      } else {
+      if (!parsed.success) {
         invalid.push({
           row: index + 1,
           errors: parsed.error.issues.map((i) => i.message),
         })
+        return
       }
+
+      if (!allowedDivisions.has(parsed.data.division)) {
+        invalid.push({
+          row: index + 1,
+          errors: ['Invalid division'],
+        })
+        return
+      }
+
+      valid.push(parsed.data)
     })
 
     return { valid, invalid }
@@ -127,6 +143,11 @@ export const importEmployees = createServerFn({ method: 'POST' })
   .middleware([requireAdmin])
   .inputValidator(z.object({ rows: z.array(employeeSchema) }))
   .handler(async ({ context, data }) => {
+    const allowedDivisions = await fetchActiveDivisionNames(context.supabase)
+    for (const row of data.rows) {
+      assertDivisionAllowed(row.division, allowedDivisions)
+    }
+
     const payload = data.rows.map((r) => ({
       ...r,
       email: r.email || null,

@@ -1,8 +1,12 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { requireAdmin, requireSupabaseAuth } from '#/lib/auth/middleware'
-import { labelToKey } from '#/lib/constants'
+import { TRACKER_WINDOW_IDS, labelToKey } from '#/lib/constants'
 import type { CustomChecklistField } from '#/lib/types'
+
+const trackerWindowsSchema = z
+  .array(z.enum(TRACKER_WINDOW_IDS as [string, ...string[]]))
+  .min(1, 'Select at least one tracker')
 
 export const listCustomFields = createServerFn({ method: 'GET' })
   .middleware([requireSupabaseAuth])
@@ -13,7 +17,10 @@ export const listCustomFields = createServerFn({ method: 'GET' })
       .order('sort_order')
 
     if (error) throw new Error(error.message)
-    return (data ?? []) as CustomChecklistField[]
+    return (data ?? []).map((row) => ({
+      ...(row as CustomChecklistField),
+      tracker_windows: (row.tracker_windows ?? ['payroll']) as CustomChecklistField['tracker_windows'],
+    }))
   })
 
 export const createCustomField = createServerFn({ method: 'POST' })
@@ -22,13 +29,19 @@ export const createCustomField = createServerFn({ method: 'POST' })
     z.object({
       label: z.string().min(1),
       key: z.string().optional(),
+      tracker_windows: trackerWindowsSchema,
     }),
   )
   .handler(async ({ context, data }) => {
     const key = data.key || labelToKey(data.label)
     const { data: row, error } = await context.supabase
       .from('custom_checklist_fields')
-      .insert({ label: data.label, key, sort_order: 0 })
+      .insert({
+        label: data.label,
+        key,
+        sort_order: 0,
+        tracker_windows: data.tracker_windows,
+      })
       .select()
       .single()
 
@@ -44,6 +57,7 @@ export const updateCustomField = createServerFn({ method: 'POST' })
       label: z.string().min(1).optional(),
       active: z.boolean().optional(),
       sort_order: z.number().optional(),
+      tracker_windows: trackerWindowsSchema.optional(),
     }),
   )
   .handler(async ({ context, data }) => {

@@ -1,13 +1,11 @@
+import { lazy, Suspense } from 'react'
 import {
   HeadContent,
   Outlet,
   Scripts,
   createRootRouteWithContext,
 } from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { TanStackDevtools } from '@tanstack/react-devtools'
 import type { QueryClient } from '@tanstack/react-query'
-import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import TanstackQueryProvider from '../integrations/tanstack-query/root-provider'
 import { ThemeProvider } from '#/components/theme-provider'
 import { AuthProvider } from '#/components/auth/auth-provider'
@@ -16,6 +14,14 @@ import { TooltipProvider } from '#/components/ui/tooltip'
 import appCss from '../styles.css?url'
 
 import type { AuthState } from '#/lib/types'
+
+const AppDevtools = import.meta.env.DEV
+  ? lazy(() =>
+      import('#/components/dev/app-devtools').then((m) => ({
+        default: m.AppDevtools,
+      })),
+    )
+  : null
 
 interface MyRouterContext {
   queryClient: QueryClient
@@ -28,12 +34,12 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       {
-        title: 'OCPDC Payroll Tracker — Compliance Dashboard',
+        title: 'OCPDC Centralized Tracker —  Dashboard',
       },
       {
         name: 'description',
         content:
-          'Track employee payroll documentation and compliance checklists across monthly pay periods for OCPDC.',
+          'Track employee documentation and compliance checklists across monthly pay periods for OCPDC.',
       },
     ],
     links: [{ rel: 'stylesheet', href: appCss }],
@@ -68,16 +74,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <TanStackDevtools
-          config={{ position: 'bottom-right' }}
-          plugins={[
-            {
-              name: 'Tanstack Router',
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-            TanStackQueryDevtools,
-          ]}
-        />
+        {AppDevtools ? (
+          <Suspense fallback={null}>
+            <AppDevtools />
+          </Suspense>
+        ) : null}
         <Scripts />
       </body>
     </html>

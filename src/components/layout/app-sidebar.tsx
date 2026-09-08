@@ -1,14 +1,14 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from '@tanstack/react-router'
 import {
   ClipboardList,
   FileSearch,
   LayoutDashboard,
   Settings,
   Users,
-} from "lucide-react";
-import { APP_NAME } from "#/lib/constants";
-import { useAuth } from "#/components/auth/auth-provider";
-import { Badge } from "#/components/ui/badge";
+} from 'lucide-react'
+import { APP_NAME, TRACKER_WINDOWS } from '#/lib/constants'
+import { useAuth } from '#/components/auth/auth-provider'
+import { Badge } from '#/components/ui/badge'
 import {
   Sidebar,
   SidebarContent,
@@ -20,27 +20,34 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "#/components/ui/sidebar";
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+} from '#/components/ui/sidebar'
 
-const navItems = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/tracker", label: "Tracker", icon: ClipboardList },
-  { to: "/employees", label: "Employees", icon: Users },
-  { to: "/audit", label: "Audit Log", icon: FileSearch },
-  { to: "/settings", label: "Settings", icon: Settings },
-] as const;
+const mainNavItems = [
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/employees', label: 'Employees', icon: Users },
+  { to: '/audit', label: 'Audit Log', icon: FileSearch },
+  { to: '/settings', label: 'Settings', icon: Settings },
+] as const
 
 export function AppSidebar() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { auth } = useAuth();
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const { auth } = useAuth()
 
-  const primaryRole = auth?.roles[0] ?? "admin";
+  const primaryRole = auth?.roles[0] ?? 'admin'
+  const trackerActive = pathname.startsWith('/tracker')
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-2">
-          <img src="/logo192.png" alt="Logo" className="h-8 w-8 rounded-md group-data-[collapsible=icon]:hidden" />
+          <img
+            src="/logo192.png"
+            alt="Logo"
+            className="h-8 w-8 rounded-md group-data-[collapsible=icon]:hidden"
+          />
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-semibold leading-tight">
               {APP_NAME}
@@ -56,9 +63,43 @@ export function AppSidebar() {
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const active = pathname.startsWith(item.to);
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard')}>
+                  <Link to="/dashboard">
+                    <LayoutDashboard />
+                    <span>Dashboard</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={trackerActive}>
+                  <ClipboardList />
+                  <span>Trackers</span>
+                </SidebarMenuButton>
+                <SidebarMenuSub>
+                  {TRACKER_WINDOWS.map((w) => (
+                    <SidebarMenuSubItem key={w.id}>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={pathname === `/tracker/${w.id}`}
+                      >
+                        <Link
+                          to="/tracker/$windowId"
+                          params={{ windowId: w.id }}
+                          search={{ tab: 'all' }}
+                        >
+                          {w.label}
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  ))}
+                </SidebarMenuSub>
+              </SidebarMenuItem>
+
+              {mainNavItems.slice(1).map((item) => {
+                const Icon = item.icon
+                const active = pathname.startsWith(item.to)
                 return (
                   <SidebarMenuItem key={item.to}>
                     <SidebarMenuButton asChild isActive={active}>
@@ -68,7 +109,7 @@ export function AppSidebar() {
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                );
+                )
               })}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -85,5 +126,5 @@ export function AppSidebar() {
         </div>
       </SidebarFooter>
     </Sidebar>
-  );
+  )
 }

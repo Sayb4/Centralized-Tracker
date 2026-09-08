@@ -1,17 +1,19 @@
--- Run after creating auth user: ocpdc_admin@ocpdc.local / adminocpdc123
+-- Assign admin role/profile to the auth user matching VITE_ADMIN_EMAIL.
+-- Create that user first in Supabase Authentication (Users), then run this seed.
 
 DO $$
 DECLARE
   admin_id uuid;
+  admin_email text := 'iloilo.cpdo.it@gmail.com';
 BEGIN
-  SELECT id INTO admin_id FROM auth.users WHERE email = 'ocpdc_admin@ocpdc.local' LIMIT 1;
+  SELECT id INTO admin_id FROM auth.users WHERE email = admin_email LIMIT 1;
   IF admin_id IS NULL THEN
-    RAISE NOTICE 'Create auth user ocpdc_admin@ocpdc.local first, then re-run seed.';
+    RAISE NOTICE 'Create auth user % first (must match VITE_ADMIN_EMAIL), then re-run seed.', admin_email;
     RETURN;
   END IF;
 
   INSERT INTO public.profiles (id, email, full_name, is_active)
-  VALUES (admin_id, 'ocpdc_admin@ocpdc.local', 'OCPDC Admin', true)
+  VALUES (admin_id, admin_email, 'OCPDC Admin', true)
   ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, is_active = true;
 
   INSERT INTO public.user_roles (user_id, role) VALUES (admin_id, 'admin')

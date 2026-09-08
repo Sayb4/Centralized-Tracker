@@ -10,6 +10,7 @@ export const AUDIT_ENTITY_TYPES = [
   'employees',
   'payroll_checklists',
   'custom_checklist_values',
+  'custom_checklist_fields',
 ] as const
 
 export const AUDIT_ACTIONS = ['INSERT', 'UPDATE', 'DELETE'] as const

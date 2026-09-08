@@ -22,27 +22,36 @@ cp .env.example .env
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY` (anon key)
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `VITE_ADMIN_EMAIL` (admin sign-in email)
+- `VITE_ADMIN_USERNAME` (optional username alias for sign-in)
 
-3. Apply the database migration in the Supabase SQL editor or CLI:
+3. Apply database migrations in the Supabase SQL editor or CLI (in order):
 
 ```
 supabase/migrations/20250604000000_initial_schema.sql
+supabase/migrations/20250608000000_rename_department_to_division.sql
+supabase/migrations/20250609000000_custom_fields_tracker_windows.sql
+supabase/migrations/20250610000000_update_admin_email.sql
+supabase/migrations/20250611000000_divisions_and_audit.sql
+supabase/migrations/20250612000000_performance_rpcs.sql
 ```
 
-4. Run the seed script:
+4. Create an admin user in **Supabase → Authentication → Users** using the same email as `VITE_ADMIN_EMAIL`. Use a strong password and store it in a password manager — do not commit credentials to the repo.
+
+5. Run the seed script (assigns admin role and profile to that user):
 
 ```
 supabase/seed.sql
 ```
 
-5. Install and run:
+6. Install and run:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000 and sign in with username `ocpdc_admin` and password `adminocpdc123`.
+Open http://localhost:3000 and sign in with your admin username or email and the password you set in Supabase.
 
 ## Deploy to Vercel
 

@@ -64,7 +64,8 @@ CREATE TABLE public.custom_checklist_fields (
   key text NOT NULL UNIQUE,
   label text NOT NULL,
   sort_order int NOT NULL DEFAULT 0,
-  active boolean NOT NULL DEFAULT true
+  active boolean NOT NULL DEFAULT true,
+  tracker_windows text[] NOT NULL DEFAULT ARRAY['payroll']::text[]
 );
 
 CREATE TABLE public.custom_checklist_values (

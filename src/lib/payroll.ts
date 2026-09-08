@@ -24,6 +24,20 @@ export function computeProgress(
   return Math.round((done / applicable.length) * 100)
 }
 
+export function getStatusesForFields(
+  checklist: PayrollChecklist | null,
+  customValues: ChecklistStatus[],
+  fieldKeys: BuiltInFieldKey[],
+  includeCustom: boolean,
+): ChecklistStatus[] {
+  const builtInStatuses = BUILT_IN_FIELDS.filter((f) =>
+    fieldKeys.includes(f.key),
+  ).map((f) => checklist?.[f.key] ?? ('not_yet_submitted' as ChecklistStatus))
+
+  const customStatuses = includeCustom ? customValues : []
+  return [...builtInStatuses, ...customStatuses]
+}
+
 export function getChecklistStatuses(
   checklist: PayrollChecklist | null,
   customValues: ChecklistStatus[],

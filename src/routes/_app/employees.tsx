@@ -1,12 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-
-const EMP_PAGE_SIZE = 20
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { DIVISIONS } from '#/lib/constants'
+import { useDebouncedValue } from '#/hooks/use-debounced-value'
+import { exportEmployeesCsv, exportEmployeesPdf } from '#/lib/export/employees'
 import type { Employee } from '#/lib/types'
 import {
   createEmployee,
@@ -16,8 +15,11 @@ import {
   updateEmployee,
   validateCsvImport,
 } from '#/server/employees'
+import { listDivisions } from '#/server/divisions'
 import { useCanManageEmployees } from '#/components/auth/auth-provider'
 import { AppHeader } from '#/components/layout/app-header'
+import { ConfirmDialog } from '#/components/ui/confirm-dialog'
+import { ExportMenu } from '#/components/export/export-menu'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import {
@@ -46,7 +48,13 @@ import {
   TableRow,
 } from '#/components/ui/table'
 
+const EMP_PAGE_SIZE = 20
+
 export const Route = createFileRoute('/_app/employees')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    q: (search.q as string) || '',
+    page: Math.max(1, Number(search.page) || 1),
+  }),
   component: EmployeesPage,
 })
 
@@ -62,34 +70,52 @@ const formSchema = z.object({
 
 function EmployeesPage() {
   const canManage = useCanManageEmployees()
-  const [search, setSearch] = useState('')
-  const [empPage, setEmpPage] = useState(1)
+  const { q, page: empPage } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const [searchInput, setSearchInput] = useState(q)
+  const debouncedSearch = useDebouncedValue(searchInput, 300)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Employee | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [csvPreview, setCsvPreview] = useState<{
     valid: z.infer<typeof formSchema>[]
     invalid: { row: number; errors: string[] }[]
   } | null>(null)
   const queryClient = useQueryClient()
 
+  useEffect(() => {
+    setSearchInput(q)
+  }, [q])
+
+  useEffect(() => {
+    if (debouncedSearch === q) return
+    navigate({
+      search: (prev) => ({ ...prev, q: debouncedSearch, page: 1 }),
+    })
+  }, [debouncedSearch, q, navigate])
+
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
     queryFn: () => listEmployees(),
   })
 
+  const { data: divisions = [] } = useQuery({
+    queryKey: ['divisions'],
+    queryFn: () => listDivisions(),
+  })
+
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return employees
+    const query = q.trim().toLowerCase()
+    if (!query) return employees
     return employees.filter(
       (e) =>
-        e.full_name.toLowerCase().includes(q) ||
-        e.employee_code.toLowerCase().includes(q) ||
-        (e.email?.toLowerCase().includes(q) ?? false),
+        e.full_name.toLowerCase().includes(query) ||
+        e.employee_code.toLowerCase().includes(query) ||
+        (e.email?.toLowerCase().includes(query) ?? false),
     )
-  }, [employees, search])
-
-  useEffect(() => { setEmpPage(1) }, [search])
+  }, [employees, q])
 
   const totalEmpPages = Math.max(1, Math.ceil(filtered.length / EMP_PAGE_SIZE))
   const paginated = filtered.slice(
@@ -107,9 +133,14 @@ function EmployeesPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Input
             placeholder="Search name, id, or email"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="max-w-sm"
+          />
+          <ExportMenu
+            onExportCsv={() => exportEmployeesCsv(filtered)}
+            onExportPdf={() => exportEmployeesPdf(filtered)}
+            label="Export"
           />
           {canManage && (
             <>
@@ -153,8 +184,8 @@ function EmployeesPage() {
                       colSpan={canManage ? 6 : 5}
                       className="py-12 text-center text-muted-foreground"
                     >
-                      {search.trim()
-                        ? `No employees match "${search}"`
+                      {q.trim()
+                        ? `No employees match "${q}"`
                         : 'No employees found'}
                     </TableCell>
                   </TableRow>
@@ -189,18 +220,7 @@ function EmployeesPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={async () => {
-                              if (!confirm('Delete this employee?')) return
-                              try {
-                                await deleteEmployee({ data: { id: emp.id } })
-                                invalidate()
-                                toast.success('Employee deleted')
-                              } catch (e) {
-                                toast.error(
-                                  e instanceof Error ? e.message : 'Delete failed',
-                                )
-                              }
-                            }}
+                            onClick={() => setDeleteTarget(emp)}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -224,7 +244,11 @@ function EmployeesPage() {
                   variant="outline"
                   size="sm"
                   disabled={empPage <= 1}
-                  onClick={() => setEmpPage((p) => p - 1)}
+                  onClick={() =>
+                    navigate({
+                      search: (prev) => ({ ...prev, page: empPage - 1 }),
+                    })
+                  }
                 >
                   Previous
                 </Button>
@@ -232,7 +256,11 @@ function EmployeesPage() {
                   variant="outline"
                   size="sm"
                   disabled={empPage >= totalEmpPages}
-                  onClick={() => setEmpPage((p) => p + 1)}
+                  onClick={() =>
+                    navigate({
+                      search: (prev) => ({ ...prev, page: empPage + 1 }),
+                    })
+                  }
                 >
                   Next
                 </Button>
@@ -246,6 +274,7 @@ function EmployeesPage() {
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           employee={editing}
+          divisions={divisions}
           onSaved={() => {
             invalidate()
             setDialogOpen(false)
@@ -324,6 +353,30 @@ function EmployeesPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <ConfirmDialog
+          open={deleteTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null)
+          }}
+          title="Delete employee?"
+          description={`This will permanently remove ${deleteTarget?.full_name ?? 'this employee'}. This action cannot be undone.`}
+          loading={deleting}
+          onConfirm={async () => {
+            if (!deleteTarget) return
+            setDeleting(true)
+            try {
+              await deleteEmployee({ data: { id: deleteTarget.id } })
+              invalidate()
+              toast.success('Employee deleted')
+              setDeleteTarget(null)
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : 'Delete failed')
+            } finally {
+              setDeleting(false)
+            }
+          }}
+        />
       </main>
     </>
   )
@@ -333,18 +386,21 @@ function EmployeeDialog({
   open,
   onOpenChange,
   employee,
+  divisions,
   onSaved,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   employee: Employee | null
+  divisions: string[]
   onSaved: () => void
 }) {
+  const defaultDivision = divisions[0] ?? ''
   const [form, setForm] = useState({
     employee_code: '',
     full_name: '',
     email: '',
-    division: DIVISIONS[0],
+    division: defaultDivision,
     position: '',
     payroll_group: '',
     status: 'active' as 'active' | 'inactive',
@@ -368,13 +424,13 @@ function EmployeeDialog({
         employee_code: '',
         full_name: '',
         email: '',
-        division: DIVISIONS[0],
+        division: defaultDivision,
         position: '',
         payroll_group: '',
         status: 'active',
       })
     }
-  }, [employee, open])
+  }, [employee, open, defaultDivision])
 
   async function handleSave() {
     const parsed = formSchema.safeParse(form)
@@ -441,7 +497,7 @@ function EmployeeDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {DIVISIONS.map((d) => (
+                {divisions.map((d) => (
                   <SelectItem key={d} value={d}>
                     {d}
                   </SelectItem>

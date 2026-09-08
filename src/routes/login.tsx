@@ -1,9 +1,10 @@
 import { createFileRoute, redirect, useNavigate, useSearch } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { APP_NAME, LOGIN_BACKGROUND_VIDEO, usernameToEmail } from '#/lib/constants'
-import { getSupabaseBrowserClient } from '#/lib/supabase/client'
-import { getAuthState } from '#/server/auth'
+import { APP_NAME, LOGIN_BACKGROUND_VIDEO } from '#/lib/constants'
+import { getAuthState, signIn } from '#/server/auth'
+import { useAuth } from '#/components/auth/auth-provider'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
@@ -22,6 +23,8 @@ export const Route = createFileRoute('/login')({
 
 function LoginPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { refetch: refetchAuth } = useAuth()
   const { error: searchError } = useSearch({ from: '/login' })
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -30,6 +33,8 @@ function LoginPage() {
   useEffect(() => {
     if (searchError === 'admin_only') {
       toast.error('Access denied. This application is restricted to administrators only.')
+    } else if (searchError === 'unauthenticated') {
+      toast.error('Please sign in to continue.')
     }
   }, [searchError])
 
@@ -37,27 +42,19 @@ function LoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      const supabase = getSupabaseBrowserClient()
-      const email = usernameToEmail(username)
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-      if (error) {
-        toast.error(error.message)
-        return
-      }
-      const auth = await getAuthState()
-      if (!auth?.roles.includes('admin')) {
-        await supabase.auth.signOut()
-        toast.error('Access denied. Administrator account required.')
+      const result = await signIn({ data: { username, password } })
+      if (!result.ok) {
+        toast.error(result.message)
         return
       }
       toast.success('Signed in successfully')
-      await navigate({ to: '/dashboard' })
-      window.location.reload()
+      await queryClient.invalidateQueries({ queryKey: ['auth'] })
+      await refetchAuth()
+      await navigate({ to: '/dashboard', replace: true })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Login failed')
+      toast.error(
+        err instanceof Error ? err.message : 'Unable to sign in. Please try again.',
+      )
     } finally {
       setLoading(false)
     }
@@ -65,16 +62,7 @@ function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-        aria-hidden
-      >
-        <source src={LOGIN_BACKGROUND_VIDEO} type="video/mp4" />
-      </video>
+      
       <div
         className="pointer-events-none absolute inset-0 "
         aria-hidden

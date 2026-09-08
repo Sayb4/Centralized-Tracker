@@ -1,7 +1,9 @@
+import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import type { DashboardGroupMember } from '#/server/dashboard'
 import { CHECKLIST_STATUS_LABELS } from '#/lib/constants'
-import type { ChecklistStatus } from '#/lib/types'
+import { trackerRouteTo, trackerSearchFromDashboard } from '#/lib/tracker-links'
+import type { ChecklistStatus, TrackerWindowId } from '#/lib/types'
 import { Badge } from '#/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Label } from '#/components/ui/label'
@@ -54,8 +56,14 @@ function statusBadgeVariant(
 
 export function PayrollGroupDetail({
   groups,
+  year,
+  month,
+  trackerWindow,
 }: {
   groups: PayrollGroupSummary[]
+  year: number
+  month: number
+  trackerWindow: TrackerWindowId
 }) {
   const [selectedGroup, setSelectedGroup] = useState<string>('')
 
@@ -151,15 +159,53 @@ export function PayrollGroupDetail({
                   {selected.members.map((member) => (
                     <TableRow key={member.employeeId}>
                       <TableCell className="font-medium">
-                        {member.fullName}
+                        <Link
+                          {...trackerRouteTo(trackerWindow)}
+                          search={trackerSearchFromDashboard({
+                            year,
+                            month,
+                            trackerWindow,
+                            q: member.employeeCode,
+                          })}
+                          className="hover:text-primary hover:underline"
+                        >
+                          {member.fullName}
+                        </Link>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {member.employeeCode}
+                        <Link
+                          {...trackerRouteTo(trackerWindow)}
+                          search={trackerSearchFromDashboard({
+                            year,
+                            month,
+                            trackerWindow,
+                            q: member.employeeCode,
+                          })}
+                          className="hover:text-primary hover:underline"
+                        >
+                          {member.employeeCode}
+                        </Link>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={categoryVariant(member.category)}>
-                          {categoryLabel(member.category)}
-                        </Badge>
+                        <Link
+                          {...trackerRouteTo(trackerWindow)}
+                          search={trackerSearchFromDashboard({
+                            year,
+                            month,
+                            trackerWindow,
+                            q: member.employeeCode,
+                            status:
+                              member.category === 'completed'
+                                ? 'completed'
+                                : member.category === 'in_progress'
+                                  ? 'pending'
+                                  : 'not_started',
+                          })}
+                        >
+                          <Badge variant={categoryVariant(member.category)}>
+                            {categoryLabel(member.category)}
+                          </Badge>
+                        </Link>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

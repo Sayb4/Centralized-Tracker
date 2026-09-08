@@ -12,11 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppTrackerRouteImport } from './routes/_app/tracker'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppEmployeesRouteImport } from './routes/_app/employees'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppAuditRouteImport } from './routes/_app/audit'
+import { Route as AppTrackerIndexRouteImport } from './routes/_app/tracker/index'
+import { Route as AppTrackerWindowIdRouteImport } from './routes/_app/tracker/$windowId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -31,11 +32,6 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AppTrackerRoute = AppTrackerRouteImport.update({
-  id: '/tracker',
-  path: '/tracker',
-  getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
@@ -57,6 +53,16 @@ const AppAuditRoute = AppAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTrackerIndexRoute = AppTrackerIndexRouteImport.update({
+  id: '/tracker/',
+  path: '/tracker/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTrackerWindowIdRoute = AppTrackerWindowIdRouteImport.update({
+  id: '/tracker/$windowId',
+  path: '/tracker/$windowId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -65,7 +71,8 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AppDashboardRoute
   '/employees': typeof AppEmployeesRoute
   '/settings': typeof AppSettingsRoute
-  '/tracker': typeof AppTrackerRoute
+  '/tracker/$windowId': typeof AppTrackerWindowIdRoute
+  '/tracker/': typeof AppTrackerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -74,7 +81,8 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AppDashboardRoute
   '/employees': typeof AppEmployeesRoute
   '/settings': typeof AppSettingsRoute
-  '/tracker': typeof AppTrackerRoute
+  '/tracker/$windowId': typeof AppTrackerWindowIdRoute
+  '/tracker': typeof AppTrackerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -85,7 +93,8 @@ export interface FileRoutesById {
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/employees': typeof AppEmployeesRoute
   '/_app/settings': typeof AppSettingsRoute
-  '/_app/tracker': typeof AppTrackerRoute
+  '/_app/tracker/$windowId': typeof AppTrackerWindowIdRoute
+  '/_app/tracker/': typeof AppTrackerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -96,7 +105,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/employees'
     | '/settings'
-    | '/tracker'
+    | '/tracker/$windowId'
+    | '/tracker/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/employees'
     | '/settings'
+    | '/tracker/$windowId'
     | '/tracker'
   id:
     | '__root__'
@@ -115,7 +126,8 @@ export interface FileRouteTypes {
     | '/_app/dashboard'
     | '/_app/employees'
     | '/_app/settings'
-    | '/_app/tracker'
+    | '/_app/tracker/$windowId'
+    | '/_app/tracker/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -147,13 +159,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/tracker': {
-      id: '/_app/tracker'
-      path: '/tracker'
-      fullPath: '/tracker'
-      preLoaderRoute: typeof AppTrackerRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/settings': {
       id: '/_app/settings'
       path: '/settings'
@@ -182,6 +187,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuditRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/tracker/': {
+      id: '/_app/tracker/'
+      path: '/tracker'
+      fullPath: '/tracker/'
+      preLoaderRoute: typeof AppTrackerIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/tracker/$windowId': {
+      id: '/_app/tracker/$windowId'
+      path: '/tracker/$windowId'
+      fullPath: '/tracker/$windowId'
+      preLoaderRoute: typeof AppTrackerWindowIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -190,7 +209,8 @@ interface AppRouteChildren {
   AppDashboardRoute: typeof AppDashboardRoute
   AppEmployeesRoute: typeof AppEmployeesRoute
   AppSettingsRoute: typeof AppSettingsRoute
-  AppTrackerRoute: typeof AppTrackerRoute
+  AppTrackerWindowIdRoute: typeof AppTrackerWindowIdRoute
+  AppTrackerIndexRoute: typeof AppTrackerIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -198,7 +218,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppDashboardRoute: AppDashboardRoute,
   AppEmployeesRoute: AppEmployeesRoute,
   AppSettingsRoute: AppSettingsRoute,
-  AppTrackerRoute: AppTrackerRoute,
+  AppTrackerWindowIdRoute: AppTrackerWindowIdRoute,
+  AppTrackerIndexRoute: AppTrackerIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

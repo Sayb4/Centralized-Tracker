@@ -13,6 +13,25 @@ export type BuiltInFieldKey =
   | 'special_order'
   | 'override_status'
   | 'leave_application'
+  | 'attendance_record'
+  | 'leave_credits'
+  | 'required_documents'
+
+export type TrackerWindowId = 'payroll' | 'documentation' | 'leave'
+
+export interface TrackerTab {
+  id: string
+  label: string
+  fields?: BuiltInFieldKey[]
+}
+
+export interface TrackerWindow {
+  id: TrackerWindowId
+  label: string
+  description: string
+  fieldKeys: BuiltInFieldKey[]
+  tabs: TrackerTab[]
+}
 
 export interface Employee {
   id: string
@@ -48,6 +67,7 @@ export interface CustomChecklistField {
   label: string
   sort_order: number
   active: boolean
+  tracker_windows: TrackerWindowId[]
 }
 
 export interface CustomChecklistValue {

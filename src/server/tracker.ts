@@ -1,20 +1,18 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { BUILT_IN_FIELDS } from '#/lib/constants'
+import { BUILT_IN_FIELDS, TRACKER_WINDOW_IDS } from '#/lib/constants'
 import { requireAdmin, requireSupabaseAuth } from '#/lib/auth/middleware'
-import {
-  computeProgress,
-  getChecklistStatuses,
-  matchesTrackerFilter,
-} from '#/lib/payroll'
+import { assertPeriodNotLocked } from '#/server/periods'
 import type {
   BuiltInFieldKey,
   ChecklistStatus,
   CustomChecklistField,
-  CustomChecklistValue,
   Employee,
   PayrollChecklist,
+  TrackerWindowId,
 } from '#/lib/types'
+
+export const TRACKER_PAGE_SIZE = 20
 
 const periodSchema = z.object({
   year: z.number().int(),
@@ -35,10 +33,72 @@ export interface TrackerRow {
   progress: number
 }
 
+interface TrackerPageRpc {
+  rows: {
+    employee: Employee
+    checklist: PayrollChecklist | null
+    custom_values: Record<string, ChecklistStatus>
+    progress: number
+  }[]
+  total: number
+  page: number
+  pageSize: number
+  customFields: CustomChecklistField[]
+}
+
 export const getTrackerData = createServerFn({ method: 'GET' })
   .middleware([requireSupabaseAuth])
   .inputValidator(
     periodSchema.extend({
+      trackerWindow: z
+        .enum(TRACKER_WINDOW_IDS as [TrackerWindowId, ...TrackerWindowId[]])
+        .optional(),
+      division: z.string().optional(),
+      statusFilter: z
+        .enum(['all', 'completed', 'pending', 'not_started'])
+        .optional(),
+      search: z.string().optional(),
+      page: z.number().int().min(1).default(1),
+      pageSize: z.number().int().min(1).max(100).default(TRACKER_PAGE_SIZE),
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: result, error } = await context.supabase.rpc('get_tracker_page', {
+      p_year: data.year,
+      p_month: data.month,
+      p_tracker_window: data.trackerWindow ?? 'payroll',
+      p_division: data.division ?? null,
+      p_search: data.search ?? null,
+      p_status_filter: data.statusFilter ?? 'all',
+      p_page: data.page,
+      p_page_size: data.pageSize,
+    })
+
+    if (error) throw new Error(error.message)
+
+    const payload = result as TrackerPageRpc
+
+    return {
+      rows: (payload.rows ?? []).map((row) => ({
+        employee: row.employee,
+        checklist: row.checklist,
+        customValues: row.custom_values ?? {},
+        progress: row.progress,
+      })),
+      total: payload.total ?? 0,
+      page: payload.page ?? data.page,
+      pageSize: payload.pageSize ?? data.pageSize,
+      customFields: payload.customFields ?? [],
+    }
+  })
+
+export const exportTrackerData = createServerFn({ method: 'GET' })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    periodSchema.extend({
+      trackerWindow: z
+        .enum(TRACKER_WINDOW_IDS as [TrackerWindowId, ...TrackerWindowId[]])
+        .optional(),
       division: z.string().optional(),
       statusFilter: z
         .enum(['all', 'completed', 'pending', 'not_started'])
@@ -47,86 +107,40 @@ export const getTrackerData = createServerFn({ method: 'GET' })
     }),
   )
   .handler(async ({ context, data }) => {
-    const { data: employees, error: empErr } = await context.supabase
-      .from('employees')
-      .select('*')
-      .order('full_name')
-
-    if (empErr) throw new Error(empErr.message)
-
-    const { data: checklists } = await context.supabase
-      .from('payroll_checklists')
-      .select('*')
-      .eq('year', data.year)
-      .eq('month', data.month)
-
-    const { data: customFields } = await context.supabase
-      .from('custom_checklist_fields')
-      .select('*')
-      .eq('active', true)
-      .order('sort_order')
-
-    const { data: customValues } = await context.supabase
-      .from('custom_checklist_values')
-      .select('*')
-      .eq('year', data.year)
-      .eq('month', data.month)
-
-    const activeFields = (customFields ?? []) as CustomChecklistField[]
-    const checklistMap = new Map(
-      (checklists ?? []).map((c) => [c.employee_id, c as PayrollChecklist]),
+    const { data: result, error } = await context.supabase.rpc(
+      'get_tracker_export',
+      {
+        p_year: data.year,
+        p_month: data.month,
+        p_tracker_window: data.trackerWindow ?? 'payroll',
+        p_division: data.division ?? null,
+        p_search: data.search ?? null,
+        p_status_filter: data.statusFilter ?? 'all',
+      },
     )
 
-    const valueMap = new Map<string, CustomChecklistValue>()
-    for (const v of customValues ?? []) {
-      valueMap.set(`${v.employee_id}:${v.field_id}`, v as CustomChecklistValue)
-    }
+    if (error) throw new Error(error.message)
 
-    let rows: TrackerRow[] = (employees ?? []).map((emp) => {
-      const employee = emp as Employee
-      const checklist = checklistMap.get(employee.id) ?? null
-      const customStatus: Record<string, ChecklistStatus> = {}
-
-      for (const field of activeFields) {
-        const val = valueMap.get(`${employee.id}:${field.id}`)
-        customStatus[field.id] = val?.status ?? 'not_yet_submitted'
-      }
-
-      const statuses = getChecklistStatuses(
-        checklist,
-        activeFields.map((f) => customStatus[f.id]),
-      )
-
-      const progress = computeProgress(
-        statuses,
-        checklist?.progress_override,
-      )
-
-      return { employee, checklist, customValues: customStatus, progress }
-    })
-
-    if (data.division && data.division !== 'all') {
-      rows = rows.filter((r) => r.employee.division === data.division)
-    }
-
-    if (data.search?.trim()) {
-      const q = data.search.trim().toLowerCase()
-      rows = rows.filter(
-        (r) =>
-          r.employee.full_name.toLowerCase().includes(q) ||
-          r.employee.employee_code.toLowerCase().includes(q),
-      )
-    }
-
-    if (data.statusFilter && data.statusFilter !== 'all') {
-      rows = rows.filter((r) =>
-        matchesTrackerFilter(r.progress, data.statusFilter!),
-      )
+    const payload = result as {
+      rows: {
+        employee: Employee
+        checklist: PayrollChecklist | null
+        custom_values: Record<string, ChecklistStatus>
+        progress: number
+      }[]
+      total: number
+      customFields: CustomChecklistField[]
     }
 
     return {
-      rows,
-      customFields: activeFields,
+      rows: (payload.rows ?? []).map((row) => ({
+        employee: row.employee,
+        checklist: row.checklist,
+        customValues: row.custom_values ?? {},
+        progress: row.progress,
+      })),
+      total: payload.total ?? 0,
+      customFields: payload.customFields ?? [],
     }
   })
 
@@ -143,6 +157,7 @@ export const updateChecklist = createServerFn({ method: 'POST' })
     }),
   )
   .handler(async ({ context, data }) => {
+    await assertPeriodNotLocked(context.supabase, data.year, data.month)
     const auth = context.auth
     const { employeeId, year, month, field, isCustom } = data
 
@@ -216,58 +231,44 @@ export const bulkUpdateChecklist = createServerFn({ method: 'POST' })
     }),
   )
   .handler(async ({ context, data }) => {
+    await assertPeriodNotLocked(context.supabase, data.year, data.month)
     const auth = context.auth
 
-    for (const employeeId of data.employeeIds) {
-      if (data.isCustom) {
-        const { error } = await context.supabase
-          .from('custom_checklist_values')
-          .upsert(
-            {
-              employee_id: employeeId,
-              field_id: data.field,
-              year: data.year,
-              month: data.month,
-              status: data.status,
-              updated_by: auth.userId,
-            },
-            { onConflict: 'employee_id,field_id,year,month' },
-          )
-        if (error) throw new Error(error.message)
-        continue
-      }
+    if (data.isCustom) {
+      const payload = data.employeeIds.map((employeeId) => ({
+        employee_id: employeeId,
+        field_id: data.field,
+        year: data.year,
+        month: data.month,
+        status: data.status,
+        updated_by: auth.userId,
+      }))
 
-      const builtInKey = data.field as BuiltInFieldKey
-      const { data: existing } = await context.supabase
-        .from('payroll_checklists')
-        .select('id')
-        .eq('employee_id', employeeId)
-        .eq('year', data.year)
-        .eq('month', data.month)
-        .maybeSingle()
+      const { error } = await context.supabase
+        .from('custom_checklist_values')
+        .upsert(payload, { onConflict: 'employee_id,field_id,year,month' })
 
-      if (existing) {
-        const { error } = await context.supabase
-          .from('payroll_checklists')
-          .update({
-            [builtInKey]: data.status,
-            updated_by: auth.userId,
-          })
-          .eq('id', existing.id)
-        if (error) throw new Error(error.message)
-      } else {
-        const { error } = await context.supabase
-          .from('payroll_checklists')
-          .insert({
-            employee_id: employeeId,
-            year: data.year,
-            month: data.month,
-            [builtInKey]: data.status,
-            updated_by: auth.userId,
-          })
-        if (error) throw new Error(error.message)
-      }
+      if (error) throw new Error(error.message)
+      return { updated: data.employeeIds.length }
     }
 
+    const builtInKey = data.field as BuiltInFieldKey
+    if (!BUILT_IN_FIELDS.some((f) => f.key === builtInKey)) {
+      throw new Error('Invalid field')
+    }
+
+    const payload = data.employeeIds.map((employeeId) => ({
+      employee_id: employeeId,
+      year: data.year,
+      month: data.month,
+      [builtInKey]: data.status,
+      updated_by: auth.userId,
+    }))
+
+    const { error } = await context.supabase
+      .from('payroll_checklists')
+      .upsert(payload, { onConflict: 'employee_id,year,month' })
+
+    if (error) throw new Error(error.message)
     return { updated: data.employeeIds.length }
   })

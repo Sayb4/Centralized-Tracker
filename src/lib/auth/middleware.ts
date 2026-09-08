@@ -2,6 +2,7 @@ import { createMiddleware } from '@tanstack/react-start'
 import { createSupabaseServerClient } from '#/lib/supabase/server'
 import type { AppRole, AuthState, Profile } from '#/lib/types'
 import { FEATURES } from '#/lib/constants'
+import { AuthError } from '#/lib/auth/errors'
 
 export type AuthMiddlewareContext = {
   auth: AuthState
@@ -28,7 +29,7 @@ async function clearStaleSession(
   }
 }
 
-async function loadAuthState(
+export async function loadAuthState(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
 ): Promise<AuthState | null> {
   let user
@@ -71,10 +72,12 @@ async function loadAuthState(
     if (row.allowed) features[row.feature] = true
   }
 
+  const profile = (profileRes.data as Profile | null) ?? null
+
   return {
     userId: user.id,
-    email: user.email ?? '',
-    profile: (profileRes.data as Profile | null) ?? null,
+    email: profile?.email ?? user.email ?? '',
+    profile,
     roles,
     features,
   }
@@ -96,7 +99,7 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' })
   .middleware([attachSupabaseAuth])
   .server(async ({ next, context }) => {
     if (!context.auth) {
-      throw new Error('Unauthorized')
+      throw new AuthError('UNAUTHORIZED')
     }
     return next({
       context: {
@@ -111,7 +114,7 @@ export const requireAdmin = createMiddleware({ type: 'function' })
   .server(async ({ next, context }) => {
     const auth = context.auth as AuthState
     if (!auth.roles.includes('admin')) {
-      throw new Error('Forbidden')
+      throw new AuthError('FORBIDDEN')
     }
     return next({ context })
   })
